@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:ffi';
-import 'package:lucky_lucky/BallInfo.dart';
+import 'package:lucky_lucky/models/ball_info.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -29,8 +29,6 @@ class DatabaseHelper {
   Future<Database> _initDatabases() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, _databaseName);
-    print("路径》》》$path");
-
     return await openDatabase(
       path,
       version: _databaseVersion,
@@ -70,33 +68,31 @@ class DatabaseHelper {
   ''';
     // 插入数据的字段值
     List<Object?> arguments = [
-      ballInfo.qh, // 期号
-      ballInfo.kjTime, // 开奖日期
-      ballInfo.zhou, // 星期
-      ballInfo.hongOne, // 红球1
-      ballInfo.hongTwo, // 红球2
-      ballInfo.hongThree, // 红球3
-      ballInfo.hongFour, // 红球4
-      ballInfo.hongFive, // 红球5
-      ballInfo.hongSix, // 红球6
-      ballInfo.lanBall // 蓝球
+      ballInfo.qh,
+      ballInfo.kjTime,
+      ballInfo.zhou,
+      ballInfo.redBalls[0],
+      ballInfo.redBalls[1],
+      ballInfo.redBalls[2],
+      ballInfo.redBalls[3],
+      ballInfo.redBalls[4],
+      ballInfo.redBalls[5],
+      ballInfo.blueBall
     ];
-// 插入数据并获取插入的行ID
-    int insertedId = await db.rawInsert(sql, arguments);
 
-    // await db.insert(_tableName, ballInfo.toMap(),
-    //     conflictAlgorithm: ConflictAlgorithm.replace);
+    // 插入数据并获取插入的行ID
+    int insertedId = await db.rawInsert(sql, arguments);
     return insertedId;
   }
 
   ///查询所有数据
-  Future<List<BallInfo>> getAllBalls() async {
+  Future<List<BallInfo>> getAllBalls(int offset, int limit) async {
     Database? db = await database;
     if (db == null) {
       return List.empty();
     }
     final List<Map<String, dynamic>> maps =
-        await db.query(_tableName, orderBy: "qh");
+        await db.query(_tableName, orderBy: "qh", offset: offset, limit: limit);
     return List.generate(maps.length, (index) {
       return BallInfo.fromJson(maps[index]);
     });
