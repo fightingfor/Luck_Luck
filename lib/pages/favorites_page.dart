@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/prediction_provider.dart';
-import '../models/prediction_stats.dart';
+import '../models/prediction_result.dart';
 
 class FavoritesPage extends StatelessWidget {
   const FavoritesPage({super.key});
@@ -82,26 +82,19 @@ class FavoritesPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        prediction.getDrawTimeDescription(),
+                        '预测时间：${prediction.predictDate.toString()}',
                         style: TextStyle(
-                          color: prediction.canDraw()
-                              ? Colors.red
-                              : Colors.grey[600],
+                          color: Colors.grey[600],
                           fontSize: 14,
-                          fontWeight: prediction.canDraw()
-                              ? FontWeight.bold
-                              : FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      if (prediction.actualRedBalls != null) ...[
+                      if (prediction.accuracyDetails.isNotEmpty) ...[
                         const Divider(),
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: prediction.prizeLevel == 0
-                                ? Colors.grey[100]
-                                : Colors.red[50],
+                            color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
@@ -110,20 +103,14 @@ class FavoritesPage extends StatelessWidget {
                               Row(
                                 children: [
                                   Icon(
-                                    prediction.prizeLevel == 0
-                                        ? Icons.info_outline
-                                        : Icons.emoji_events,
-                                    color: prediction.prizeLevel == 0
-                                        ? Colors.grey
-                                        : Colors.red,
+                                    Icons.analytics_outlined,
+                                    color: Colors.blue,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '开奖结果',
+                                    '预测准确率',
                                     style: TextStyle(
-                                      color: prediction.prizeLevel == 0
-                                          ? Colors.grey[600]
-                                          : Colors.red,
+                                      color: Colors.blue,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -131,24 +118,13 @@ class FavoritesPage extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              Text(
-                                '开奖号码：',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  const Text('红球：'),
-                                  Expanded(
-                                    child: Text(
-                                      prediction.actualRedBalls!.join(', '),
-                                      style: const TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 14,
-                                      ),
+                                  Text(
+                                    '红球准确率：${(prediction.accuracyDetails['red_accuracy'] ?? 0.0 * 100).toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ],
@@ -156,70 +132,49 @@ class FavoritesPage extends StatelessWidget {
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  const Text('蓝球：'),
                                   Text(
-                                    prediction.actualBlueBall.toString(),
-                                    style: const TextStyle(
+                                    '蓝球准确率：${(prediction.accuracyDetails['blue_accuracy'] ?? 0.0 * 100).toStringAsFixed(1)}%',
+                                    style: TextStyle(
                                       color: Colors.blue,
                                       fontSize: 14,
                                     ),
                                   ),
                                 ],
                               ),
-                              const Divider(height: 24),
-                              Text(
-                                prediction.getPrizeDescription(),
-                                style: TextStyle(
-                                  color: prediction.prizeLevel == 0
-                                      ? Colors.grey[600]
-                                      : Colors.red,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    '总体准确率：${(prediction.accuracyDetails['total_accuracy'] ?? 0.0 * 100).toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      color: Colors.purple,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                      ] else if (prediction.canDraw()) ...[
+                      ] else ...[
                         const Divider(),
                         const SizedBox(height: 8),
                         Center(
                           child: Column(
                             children: [
                               const Icon(
-                                Icons.notifications_active,
-                                color: Colors.red,
+                                Icons.pending_outlined,
+                                color: Colors.orange,
                                 size: 32,
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                '已到开奖时间',
+                                '等待开奖',
                                 style: TextStyle(
-                                  color: Colors.red,
+                                  color: Colors.orange,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: () =>
-                                      provider.drawPrediction(prediction),
-                                  icon: const Icon(Icons.casino),
-                                  label: const Text('立即开奖'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 32,
-                                      vertical: 16,
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
                                 ),
                               ),
                             ],

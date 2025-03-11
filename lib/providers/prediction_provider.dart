@@ -4,6 +4,7 @@ import '../models/prediction_stats.dart';
 import '../services/prediction_service.dart';
 import '../services/database_service.dart';
 import '../models/ball_info.dart';
+import '../models/prediction_result.dart';
 import 'dart:convert';
 
 class PredictionProvider extends ChangeNotifier {
@@ -159,6 +160,12 @@ class PredictionProvider extends ChangeNotifier {
 
     // 计算中奖情况
     prediction.calculatePrize(actualRed, actualBlue);
+    notifyListeners();
+  }
+
+  /// 清除所有历史预测记录
+  Future<void> clearPredictionHistory() async {
+    await _predictionService.clearPredictionHistory();
     notifyListeners();
   }
 }

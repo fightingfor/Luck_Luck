@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/ball_info.dart';
+import '../models/search_criteria.dart';
 import '../services/network_service.dart';
 import '../services/database_service.dart';
 
@@ -112,5 +113,15 @@ class BallProvider extends ChangeNotifier {
       _balls[index] = ball;
       notifyListeners();
     }
+  }
+
+  // 获取总记录数
+  Future<int> getTotalCount() async {
+    return await _databaseService.getTotalCount();
+  }
+
+  // 搜索数据
+  Future<List<BallInfo>> searchBalls(SearchCriteria criteria) async {
+    return await _databaseService.searchBalls(criteria);
   }
 }

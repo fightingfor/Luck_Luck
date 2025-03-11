@@ -6,6 +6,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:lucky_lucky/models/ball_info.dart';
+import 'package:lucky_lucky/models/search_criteria.dart';
 import 'dart:math';
 
 class DatabaseService {
@@ -240,6 +241,71 @@ class DatabaseService {
     }
 
     return gaps;
+  }
+
+  // 根据搜索条件查询数据
+  Future<List<BallInfo>> searchBalls(SearchCriteria criteria) async {
+    final db = await database;
+    List<String> conditions = [];
+    List<dynamic> arguments = [];
+
+    // 处理期号范围
+    if (criteria.recentPeriods != null) {
+      conditions
+          .add('qh IN (SELECT qh FROM $tableName ORDER BY qh DESC LIMIT ?)');
+      arguments.add(criteria.recentPeriods);
+    } else if (criteria.startPeriod != null || criteria.endPeriod != null) {
+      if (criteria.startPeriod != null) {
+        conditions.add('qh >= ?');
+        arguments.add(criteria.startPeriod);
+      }
+      if (criteria.endPeriod != null) {
+        conditions.add('qh <= ?');
+        arguments.add(criteria.endPeriod);
+      }
+    }
+
+    // 处理日期范围
+    if (criteria.startDate != null) {
+      conditions.add('kj_time >= ?');
+      arguments.add(criteria.startDate!.toIso8601String().split('T')[0]);
+    }
+    if (criteria.endDate != null) {
+      conditions.add('kj_time <= ?');
+      arguments.add(criteria.endDate!.toIso8601String().split('T')[0]);
+    }
+
+    // 处理号码搜索
+    if (criteria.redBalls.isNotEmpty) {
+      List<String> redConditions =
+          criteria.redBalls.map((ball) => 'red_balls LIKE ?').toList();
+      conditions.add('(${redConditions.join(' OR ')})');
+      arguments.addAll(criteria.redBalls.map((ball) => '%$ball%'));
+    }
+
+    if (criteria.blueBalls.isNotEmpty) {
+      List<String> blueConditions =
+          criteria.blueBalls.map((ball) => 'blue_ball = ?').toList();
+      conditions.add('(${blueConditions.join(' OR ')})');
+      arguments.addAll(criteria.blueBalls);
+    }
+
+    String query = 'SELECT * FROM $tableName';
+    if (conditions.isNotEmpty) {
+      query += ' WHERE ${conditions.join(' AND ')}';
+    }
+    query += ' ORDER BY qh DESC';
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery(query, arguments);
+    return List.generate(maps.length, (i) => BallInfo.fromJson(maps[i]));
+  }
+
+  // 获取总记录数
+  Future<int> getTotalCount() async {
+    final db = await database;
+    final result =
+        await db.rawQuery('SELECT COUNT(*) as count FROM $tableName');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }
 

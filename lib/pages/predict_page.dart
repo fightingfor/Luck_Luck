@@ -82,10 +82,11 @@ class _PredictPageState extends State<PredictPage>
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Text(
-                                  '期号：${prediction?.periodNumber ?? ""}',
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
+                                if (prediction != null)
+                                  Text(
+                                    '期号：${prediction.periodNumber}',
+                                    style: const TextStyle(color: Colors.grey),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -95,138 +96,113 @@ class _PredictPageState extends State<PredictPage>
                                 color: Colors.grey[100],
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: prediction == null
-                                  ? Column(
+                              child: Column(
+                                children: [
+                                  if (prediction == null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.psychology,
+                                        size: 48,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      '人工智能预测',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      '基于大数据分析和机器学习算法',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '已分析 ${provider.getAnalyzedCount()} 期历史数据',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Row(
                                       children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.withOpacity(0.1),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.psychology,
-                                            size: 48,
-                                            color:
-                                                Theme.of(context).primaryColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        const Text(
-                                          '人工智能预测',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          '基于大数据分析和机器学习算法',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '已分析 ${provider.getAnalyzedCount()} 期历史数据',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 24),
-                                        ElevatedButton.icon(
-                                          onPressed: _isGenerating
-                                              ? null
-                                              : _startPrediction,
-                                          icon: const Icon(Icons.auto_awesome),
-                                          label: Text(_isGenerating
-                                              ? '正在生成...'
-                                              : '开始智能预测'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Theme.of(context).primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 32,
-                                              vertical: 16,
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Column(
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Text('红球：'),
-                                            Expanded(
-                                              child: _isGenerating
-                                                  ? const LinearProgressIndicator()
-                                                  : Text(
-                                                      prediction.redBalls
-                                                          .join(', '),
-                                                      style: const TextStyle(
-                                                        color: Colors.red,
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            const Text('蓝球：'),
-                                            Expanded(
-                                              child: _isGenerating
-                                                  ? const LinearProgressIndicator()
-                                                  : Text(
-                                                      prediction.blueBall
-                                                          .toString(),
-                                                      style: const TextStyle(
-                                                        color: Colors.blue,
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 24),
-                                        ElevatedButton.icon(
-                                          onPressed: _isGenerating
-                                              ? null
-                                              : _startPrediction,
-                                          icon: const Icon(Icons.refresh),
-                                          label: Text(_isGenerating
-                                              ? '正在生成...'
-                                              : '重新预测'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Theme.of(context).primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 32,
-                                              vertical: 16,
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                        const Text('红球：'),
+                                        Expanded(
+                                          child: _isGenerating
+                                              ? const LinearProgressIndicator()
+                                              : Text(
+                                                  prediction.redBalls
+                                                      .join(', '),
+                                                  style: const TextStyle(
+                                                    color: Colors.red,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        const Text('蓝球：'),
+                                        Expanded(
+                                          child: _isGenerating
+                                              ? const LinearProgressIndicator()
+                                              : Text(
+                                                  prediction.blueBall
+                                                      .toString(),
+                                                  style: const TextStyle(
+                                                    color: Colors.blue,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  const SizedBox(height: 24),
+                                  ElevatedButton.icon(
+                                    onPressed:
+                                        _isGenerating ? null : _startPrediction,
+                                    icon: Icon(prediction == null
+                                        ? Icons.auto_awesome
+                                        : Icons.refresh),
+                                    label: Text(_isGenerating
+                                        ? '正在生成...'
+                                        : (prediction == null
+                                            ? '开始预测'
+                                            : '重新预测')),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).primaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 16,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -236,12 +212,51 @@ class _PredictPageState extends State<PredictPage>
                     // 历史预测列表
                     if (history.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      const Text(
-                        '历史预测',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '历史预测',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('清除历史预测'),
+                                  content: const Text('确定要清除所有历史预测记录吗？'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('取消'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () async {
+                                        await provider.clearPredictionHistory();
+                                        if (context.mounted) {
+                                          Navigator.pop(context);
+                                        }
+                                      },
+                                      child: const Text(
+                                        '确定',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            label: const Text('清除'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       ...history

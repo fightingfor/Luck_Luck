@@ -139,3 +139,51 @@ class TrendData {
     maxGap = redBalls.reduce((a, b) => b - a);
   }
 }
+
+class NumberFeatures {
+  final int sum; // 号码和值
+  final double oddRatio; // 奇数比例
+  final double bigRatio; // 大号比例
+  final bool hasConsecutive; // 是否有连号
+  final int maxGap; // 最大间隔
+  final int ac; // AC值（邻号差值和）
+  final List<int> gaps; // 号码间隔序列
+
+  NumberFeatures({
+    required this.sum,
+    required this.oddRatio,
+    required this.bigRatio,
+    required this.hasConsecutive,
+    required this.maxGap,
+    required this.ac,
+    required this.gaps,
+  });
+
+  factory NumberFeatures.analyze(List<int> numbers) {
+    numbers.sort();
+    int sum = numbers.reduce((a, b) => a + b);
+    int oddCount = numbers.where((n) => n % 2 == 1).length;
+    int bigCount = numbers.where((n) => n > 16).length;
+
+    bool consecutive = false;
+    int ac = 0;
+    List<int> gaps = [];
+
+    for (int i = 0; i < numbers.length - 1; i++) {
+      int gap = numbers[i + 1] - numbers[i];
+      gaps.add(gap);
+      ac += gap;
+      if (gap == 1) consecutive = true;
+    }
+
+    return NumberFeatures(
+      sum: sum,
+      oddRatio: oddCount / numbers.length,
+      bigRatio: bigCount / numbers.length,
+      hasConsecutive: consecutive,
+      maxGap: gaps.reduce((a, b) => a > b ? a : b),
+      ac: ac,
+      gaps: gaps,
+    );
+  }
+}
