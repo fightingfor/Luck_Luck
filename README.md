@@ -1,29 +1,65 @@
-# lucky_lucky
+# 双色球智能预测助手
 
-A new Flutter project.
+一个基于 Flutter 开发的双色球智能预测应用，提供全面的彩票数据分析和智能预测功能。
 
-## Getting Started
+## 主要功能
 
-This project is a starting point for a Flutter application.
+### 1. 智能预测
+- 基于历史数据的智能号码预测
+- 预测结果收藏功能
+- 预测历史记录查看
+- 预测准确率统计
+- 一键清空预测历史
 
-A few resources to get you started if this is your first Flutter project:
+### 2. 历史数据
+- 实时同步最新开奖数据
+- 历史开奖记录查询
+- 多维度搜索功能：
+  - 期号搜索
+  - 日期范围搜索
+  - 红球/蓝球号码搜索
+  - 最近十期快速查看
+- 搜索面板自动折叠优化
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 3. 数据分析
+- 号码出现频率分析
+- 热门号码分析
+- 冷门号码分析
+- 号码走势图表
+- 遗漏值分析
+- 连号分析
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-****samples, guidance on mobile development, and a full API reference.****
+### 4. 个人中心
+- 收藏夹管理
+- 预测记录管理
+- 准确率统计
+- 历史战绩查看
 
-## 1108 第一步。把所有数据导入，找到合适的插件
-### 1111 完成第一步
-## 功能规划
-### 展示所有数据
-### 根据筛选条件展示数据（可以选择期数区间，可以选择期数）
-### 查询某个数字 在最近出现的情况，场景：列出所有数据，对要筛选的数据，标记黄色，从上到下看起来更加直观
-### 趋势图，就比如店里挂的那种图
-### 查询历年某一期数据展示
-### 数字统计展示，最好是可以横竖屏切换，最好用柱状图更加直观
-### 号码查询，查询历史上有没有出现过，或者查询一下列出来最相识的数据，比如重复数字大于等于 3 个
-### 记录选中号码，自动对比开奖信心，弹出消息提示
-### 能否实现爬虫信息，自动录入最新一期的数据。
+### 5. 数据特性
+- 离线数据存储
+- 自动数据同步
+- 数据连续性检查
+- 实时更新机制
+
+### 6. 用户体验
+- 流畅的动画效果
+- 直观的数据可视化
+- 便捷的搜索功能
+- 响应式界面设计
+- 智能的面板折叠
+
+## 技术特点
+- 采用 Flutter 跨平台框架开发
+- Provider 状态管理
+- SQLite 本地数据存储
+- RESTful API 数据同步
+- 响应式设计
+- 模块化架构
+
+## 项目结构
+- 服务层：处理核心业务逻辑（预测、数据库、网络、分析）
+- 页面层：用户界面和交互
+- 组件层：可复用的UI组件
+- 模型层：数据模型定义
+- 状态管理：应用状态控制
+- 工具层：通用功能和辅助工具
