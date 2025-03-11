@@ -1,24 +1,26 @@
 name: lucky_lucky
 description: A new Flutter project.
 publish_to: 'none'
-version: 0.0.1+1
+version: 0.1.0
 
 environment:
-  sdk: '>=3.1.3 <4.0.0'
+  sdk: '>=3.0.6 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  sqflite: ^2.3.2
-  path: ^1.8.3
-  path_provider: ^2.1.2
+  sqflite: ^2.0.0+4
+  path: ^1.8.0
+  path_provider: ^2.0.0
   http: ^1.1.0
-  provider: ^6.1.1
+  provider: ^6.0.0
   html: ^0.15.4
-  flutter_screenutil: ^5.9.0
+  flutter_screenutil: ^5.0.0
   pull_to_refresh: ^2.0.0
   dio: ^5.4.1
+  shared_preferences: ^2.0.8
+  fl_chart: ^0.64.0
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +29,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/AllBallsInfo.json
+    - assets/images/

@@ -1,73 +1,100 @@
 import 'package:flutter/foundation.dart';
-import 'package:lucky_lucky/models/ball_info.dart';
-import 'package:lucky_lucky/services/network_service.dart';
+import '../models/ball_info.dart';
+import '../services/network_service.dart';
+import '../services/database_service.dart';
 
 class BallProvider extends ChangeNotifier {
-  final NetworkService _networkService = NetworkService();
-  final List<BallInfo> _balls = [];
-  bool _hasMore = true;
+  final DatabaseService _databaseService;
+  final NetworkService _networkService;
+
+  List<BallInfo> _balls = [];
   bool _isLoading = false;
+  bool _hasMore = true;
   int _currentOffset = 0;
   static const int _pageSize = 20;
 
-  BallProvider() {
-    _initData();
+  BallProvider(this._databaseService, this._networkService) {
+    _networkService.onLoadingProgress = (message, progress) {
+      // 网络服务的加载进度回调
+    };
   }
 
-  List<BallInfo> get balls => List.unmodifiable(_balls);
-  bool get hasMore => _hasMore;
+  List<BallInfo> get balls => _balls;
   bool get isLoading => _isLoading;
+  bool get hasMore => _hasMore;
 
-  Future<void> _initData() async {
+  // 设置初始数据
+  void setInitialData(List<BallInfo> initialData) {
+    _balls = initialData;
+    _currentOffset = initialData.length;
+    notifyListeners();
+  }
+
+  Future<void> loadInitialData({
+    required void Function(String message, double progress) onProgress,
+    bool forceReload = false,
+  }) async {
+    if (_balls.isNotEmpty && !forceReload) return;
+
     _isLoading = true;
     notifyListeners();
 
     try {
-      // 先刷新数据
-      await _networkService.checkForUpdates();
+      // 设置网络服务的进度回调
+      _networkService.onLoadingProgress = onProgress;
 
-      // 等待一小段时间确保数据已经写入数据库
-      await Future.delayed(Duration(milliseconds: 500));
+      // 加载第一页数据
+      final newBalls = await _databaseService.getBalls(0, _pageSize);
 
-      // 从数据库加载数据
-      final newBalls = await _networkService.getNextPage(0, _pageSize);
-      if (newBalls.isNotEmpty) {
-        _balls.addAll(newBalls);
-        _hasMore = true;
-      } else {
+      if (newBalls.isEmpty) {
         _hasMore = false;
+      } else {
+        _balls = newBalls;
+        _currentOffset = newBalls.length;
       }
-
-      print('Loaded ${_balls.length} balls from database');
     } catch (e) {
-      print('Error initializing data: $e');
+      debugPrint('加载初始数据时出错: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> loadMore() async {
-    if (!_hasMore) return;
+  Future<void> loadMoreData() async {
+    if (_isLoading || !_hasMore) return;
 
-    final newBalls =
-        await _networkService.getNextPage(_currentOffset, _pageSize);
-    if (newBalls.isEmpty) {
-      _hasMore = false;
-      notifyListeners();
-      return;
-    }
-
-    _balls.addAll(newBalls);
-    _currentOffset += newBalls.length;
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      final newBalls =
+          await _databaseService.getBalls(_currentOffset, _pageSize);
+
+      if (newBalls.isEmpty) {
+        _hasMore = false;
+      } else {
+        _balls.addAll(newBalls);
+        _currentOffset += newBalls.length;
+      }
+    } catch (e) {
+      debugPrint('加载数据时出错: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> refresh() async {
+  Future<void> refreshData() async {
     _balls.clear();
     _currentOffset = 0;
     _hasMore = true;
-    await loadMore();
+    notifyListeners();
+
+    try {
+      await _networkService.checkForUpdates();
+    } finally {
+      await loadMoreData();
+    }
   }
 
   void addBalls(List<BallInfo> newBalls) {

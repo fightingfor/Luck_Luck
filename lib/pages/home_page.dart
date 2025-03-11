@@ -17,6 +17,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  String _loadingMessage = '';
+  double _loadingProgress = 0.0;
 
   @override
   void initState() {
@@ -29,7 +31,14 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initData() async {
     final ballProvider = Provider.of<BallProvider>(context, listen: false);
-    await ballProvider.loadMore();
+    await ballProvider.loadInitialData(
+      onProgress: (message, progress) {
+        setState(() {
+          _loadingMessage = message;
+          _loadingProgress = progress;
+        });
+      },
+    );
   }
 
   void _onScroll() {
@@ -46,7 +55,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final ballProvider = Provider.of<BallProvider>(context, listen: false);
-      await ballProvider.loadMore();
+      await ballProvider.loadMoreData();
     } finally {
       setState(() => _isLoading = false);
     }
@@ -54,7 +63,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onRefresh() async {
     final ballProvider = Provider.of<BallProvider>(context, listen: false);
-    await ballProvider.refresh();
+    await ballProvider.refreshData();
   }
 
   @override
@@ -73,122 +82,158 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Material(
         color: Colors.grey[100],
-        child: RefreshIndicator(
-          onRefresh: _onRefresh,
-          child: Consumer<BallProvider>(
-            builder: (context, ballProvider, child) {
-              final balls = ballProvider.balls;
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _onRefresh,
+              child: Consumer<BallProvider>(
+                builder: (context, ballProvider, child) {
+                  final balls = ballProvider.balls;
 
-              if (balls.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.search_off,
-                        size: 48.sp,
-                        color: Colors.grey[400],
+                  if (balls.isEmpty && !_isLoading) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            size: 48.sp,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            '暂无数据',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16.sp,
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 16.h),
-                      Text(
-                        '暂无数据',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 16.sp,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.symmetric(vertical: 8.h),
-                itemCount: balls.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == balls.length) {
-                    return _buildLoadingIndicator(ballProvider.hasMore);
+                    );
                   }
 
-                  final ball = balls[index];
-                  return Card(
-                    margin: EdgeInsets.symmetric(
-                      horizontal: 12.w,
-                      vertical: 6.h,
-                    ),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(12.r),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    itemCount: balls.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == balls.length) {
+                        return _buildLoadingIndicator(ballProvider.hasMore);
+                      }
+
+                      final ball = balls[index];
+                      return Card(
+                        margin: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 6.h,
+                        ),
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(12.r),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12.w,
-                                      vertical: 4.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).primaryColor,
-                                      borderRadius: BorderRadius.circular(16.r),
-                                    ),
-                                    child: Text(
-                                      '第${ball.qh}期',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.bold,
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12.w,
+                                          vertical: 4.h,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).primaryColor,
+                                          borderRadius:
+                                              BorderRadius.circular(16.r),
+                                        ),
+                                        child: Text(
+                                          '第${ball.qh}期',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      SizedBox(width: 8.w),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 12.w,
+                                          vertical: 4.h,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange,
+                                          borderRadius:
+                                              BorderRadius.circular(16.r),
+                                        ),
+                                        child: Text(
+                                          '周${ball.zhou}',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 8.w),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12.w,
-                                      vertical: 4.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange,
-                                      borderRadius: BorderRadius.circular(16.r),
-                                    ),
-                                    child: Text(
-                                      '周${ball.zhou}',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  Text(
+                                    ball.kjTime,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14.sp,
                                     ),
                                   ),
                                 ],
                               ),
-                              Text(
-                                ball.kjTime,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14.sp,
-                                ),
-                              ),
+                              SizedBox(height: 12.h),
+                              OneSsqView(balls: ball.toBalls()),
                             ],
                           ),
-                          SizedBox(height: 12.h),
-                          OneSsqView(balls: ball.toBalls()),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_loadingProgress < 1.0)
+              Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Card(
+                    margin: EdgeInsets.symmetric(horizontal: 32.w),
+                    child: Padding(
+                      padding: EdgeInsets.all(16.r),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            value:
+                                _loadingProgress > 0 ? _loadingProgress : null,
+                          ),
+                          SizedBox(height: 16.h),
+                          Text(
+                            _loadingMessage,
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: Colors.grey[800],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  );
-                },
-              );
-            },
-          ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

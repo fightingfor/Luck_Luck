@@ -2,128 +2,74 @@ import 'ball.dart';
 
 /// 双色球开奖信息数据模型
 class BallInfo {
-  final String qh;
+  final int qh;
   final String kjTime;
+  final String zhou;
   final List<int> redBalls;
   final int blueBall;
-  final String saleMoney;
-  final String prizePoolMoney;
-  final String zhou;
-  final List<WinnerDetail> winnerDetails;
 
   BallInfo({
     required this.qh,
     required this.kjTime,
+    required this.zhou,
     required this.redBalls,
     required this.blueBall,
-    required this.saleMoney,
-    required this.prizePoolMoney,
-    required this.zhou,
-    required this.winnerDetails,
   });
 
   /// 从JSON数据创建BallInfo实例
   factory BallInfo.fromJson(Map<String, dynamic> json) {
-    return BallInfo(
-      qh: json['qh'],
-      kjTime: json['kjTime'],
-      redBalls: [
+    // 处理红球数据
+    List<int> redBalls;
+    if (json['red_balls'] != null) {
+      // 新格式：从逗号分隔的字符串解析
+      redBalls = json['red_balls']
+          .toString()
+          .split(',')
+          .map((s) => int.parse(s.trim()))
+          .toList();
+    } else {
+      // 旧格式：从单独的字段解析
+      redBalls = [
         int.parse(json['hong_one'].toString()),
         int.parse(json['hong_two'].toString()),
         int.parse(json['hong_three'].toString()),
         int.parse(json['hong_four'].toString()),
         int.parse(json['hong_five'].toString()),
         int.parse(json['hong_six'].toString()),
-      ],
-      blueBall: int.parse(json['lan_ball'].toString()),
-      saleMoney: json['saleMoney'] ?? '0',
-      prizePoolMoney: json['prizePoolMoney'] ?? '0',
-      zhou: json['zhou'],
-      winnerDetails: (json['winnerDetails'] as List?)
-              ?.map((detail) => WinnerDetail.fromJson(detail))
-              .toList() ??
-          [],
+      ];
+    }
+
+    return BallInfo(
+      qh: json['qh'] is int ? json['qh'] : int.parse(json['qh'].toString()),
+      kjTime: json['kj_time'].toString(),
+      zhou: json['zhou'].toString(),
+      redBalls: redBalls,
+      blueBall: json['blue_ball'] != null
+          ? int.parse(json['blue_ball'].toString())
+          : int.parse(json['lan_ball'].toString()),
     );
   }
 
   /// 转换为Map，用于数据库操作
-  Map<String, dynamic> toJson() {
-    return {
-      'qh': qh,
-      'kjTime': kjTime,
-      'hong_one': redBalls[0],
-      'hong_two': redBalls[1],
-      'hong_three': redBalls[2],
-      'hong_four': redBalls[3],
-      'hong_five': redBalls[4],
-      'hong_six': redBalls[5],
-      'lan_ball': blueBall,
-      'saleMoney': saleMoney,
-      'prizePoolMoney': prizePoolMoney,
-      'zhou': zhou,
-      'winnerDetails': winnerDetails.map((detail) => detail.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'qh': qh,
+        'kj_time': kjTime,
+        'zhou': zhou,
+        'red_balls': redBalls.join(','),
+        'blue_ball': blueBall,
+      };
 
   /// 转换为Ball对象列表
   List<Ball> toBalls() {
     return [
-      Ball(num: redBalls[0], isRed: true),
-      Ball(num: redBalls[1], isRed: true),
-      Ball(num: redBalls[2], isRed: true),
-      Ball(num: redBalls[3], isRed: true),
-      Ball(num: redBalls[4], isRed: true),
-      Ball(num: redBalls[5], isRed: true),
+      ...redBalls.map((num) => Ball(num: num, isRed: true)),
       Ball(num: blueBall, isRed: false),
     ];
   }
 
   @override
   String toString() {
-    return 'BallInfo{qh: $qh, kjTime: $kjTime, redBalls: $redBalls, blueBall: $blueBall, saleMoney: $saleMoney, prizePoolMoney: $prizePoolMoney, zhou: $zhou, winnerDetails: $winnerDetails}';
-  }
-
-  // 从Map创建BallInfo对象
-  factory BallInfo.fromMap(Map<String, dynamic> map) {
-    return BallInfo(
-      qh: map['qh']?.toString() ?? '',
-      kjTime: map['kj_time']?.toString() ?? '',
-      redBalls: [
-        int.tryParse(map['hong_one']?.toString() ?? '0') ?? 0,
-        int.tryParse(map['hong_two']?.toString() ?? '0') ?? 0,
-        int.tryParse(map['hong_three']?.toString() ?? '0') ?? 0,
-        int.tryParse(map['hong_four']?.toString() ?? '0') ?? 0,
-        int.tryParse(map['hong_five']?.toString() ?? '0') ?? 0,
-        int.tryParse(map['hong_six']?.toString() ?? '0') ?? 0,
-      ],
-      blueBall: int.tryParse(map['lan_ball']?.toString() ?? '0') ?? 0,
-      saleMoney: map['saleMoney']?.toString() ?? '0',
-      prizePoolMoney: map['prizePoolMoney']?.toString() ?? '0',
-      zhou: map['zhou']?.toString() ?? '',
-      winnerDetails: (map['winnerDetails'] as List?)
-              ?.map((detail) => WinnerDetail.fromJson(detail))
-              .toList() ??
-          [],
-    );
-  }
-
-  // 将BallInfo对象转换为Map
-  Map<String, dynamic> toMap() {
-    return {
-      'qh': qh,
-      'kjTime': kjTime,
-      'hong_one': redBalls[0],
-      'hong_two': redBalls[1],
-      'hong_three': redBalls[2],
-      'hong_four': redBalls[3],
-      'hong_five': redBalls[4],
-      'hong_six': redBalls[5],
-      'lan_ball': blueBall,
-      'saleMoney': saleMoney,
-      'prizePoolMoney': prizePoolMoney,
-      'zhou': zhou,
-      'winnerDetails': winnerDetails.map((detail) => detail.toJson()).toList(),
-    };
+    return 'BallInfo{qh: $qh, kjTime: $kjTime, zhou: $zhou, redBalls: $redBalls, blueBall: $blueBall}';
   }
 }
 

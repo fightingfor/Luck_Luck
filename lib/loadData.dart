@@ -1,114 +1,96 @@
 import 'dart:convert';
-
 import 'package:flutter/services.dart';
 import 'package:lucky_lucky/models/ball_info.dart';
-import 'package:lucky_lucky/DatabaseHelper.dart';
-import 'package:http/http.dart' as http;
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-import 'services/database_service.dart';
+import 'package:lucky_lucky/services/database_service.dart';
+import 'package:lucky_lucky/services/network_service.dart';
+import 'package:lucky_lucky/services/prediction_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// 加载 json 数据
+const int MINIMUM_DATA_COUNT = 3223; // JSON文件中的数据量
+
+typedef LoadingProgressCallback = void Function(
+    String message, double progress);
+
+/// 加载本地 json 数据
 Future<List<BallInfo>> loadJsonData() async {
   try {
-    final response = await http.get(
-      Uri.parse(
-          'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=5000'),
-      headers: {
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Connection': 'keep-alive',
-        'Referer': 'https://www.cwl.gov.cn/ygkj/wqkjgg/ssq/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-    );
+    // 读取本地JSON文件
+    final String jsonString =
+        await rootBundle.loadString('assets/AllBallsInfo.json');
+    final List<dynamic> jsonList = json.decode(jsonString);
+    print('从JSON文件加载了 ${jsonList.length} 条数据');
 
-    if (response.statusCode == 200) {
-      final jsonData = json.decode(response.body);
-      print('Response status code: ${response.statusCode}');
-      print('Response headers: ${response.headers}');
-      print(
-          'Response body: ${response.body.substring(0, 500)}...'); // Print first 500 chars for debugging
+    // 按期号排序
+    jsonList.sort((a, b) =>
+        int.parse(a['qh'].toString()).compareTo(int.parse(b['qh'].toString())));
 
-      if (jsonData['result'] != null) {
-        final List<dynamic> items = jsonData['result'];
-        print('Found ${items.length} items in response');
-
-        final dbService = DatabaseService();
-        await dbService.initialize();
-
-        final List<BallInfo> balls = [];
-        for (var item in items) {
-          try {
-            final ball = BallInfo.fromJson(item);
-            balls.add(ball);
-            print('Successfully processed ball with issue: ${ball.qh}');
-          } catch (e) {
-            print('Error processing item: $e');
-            print('Item data: $item');
-          }
-        }
-
-        if (balls.isNotEmpty) {
-          await dbService.insertBalls(balls);
-          print('Successfully inserted ${balls.length} balls into database');
-        }
-
-        return balls;
-      } else {
-        print('No result field in response');
-        return [];
+    // 检查期号连续性，但不打印间隔
+    for (int i = 0; i < jsonList.length - 1; i++) {
+      int currentQh = int.parse(jsonList[i]['qh'].toString());
+      int nextQh = int.parse(jsonList[i + 1]['qh'].toString());
+      if (nextQh - currentQh > 1) {
+        // 检查到间隔但不打印
+        continue;
       }
-    } else {
-      print('Error: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      return [];
     }
+
+    print('数据条数: ${jsonList.length}');
+    return jsonList.map((item) => BallInfo.fromJson(item)).toList();
   } catch (e) {
-    print('Error fetching data: $e');
+    print('加载JSON数据时出错: $e');
     return [];
   }
 }
 
-///检查并插入数据
-Future checkDbAndInsert() async {
-  final dbhelper = DatabaseHelper();
-  final isTableEmpty = await dbhelper.isTableEmpty();
-  if (!isTableEmpty) {
-    print("数据不为空，不用插入");
-    return;
-  }
-  List<BallInfo> ballInfos = await loadJsonData();
-
-  for (int i = 0; i < ballInfos.length; i++) {
-    await dbhelper.insertBall(ballInfos[i]);
-  }
-}
-
-// 抓取并解析双色球数据的函数
-Future<void> fetchAndInsertData() async {
+/// 初始化数据
+/// 这个方法应该在App启动时调用
+Future<void> initializeData(
+  DatabaseService dbService,
+  LoadingProgressCallback? onProgress,
+) async {
   try {
-    await loadJsonData();
-    await checkDatabase();
+    // 检查数据库
+    onProgress?.call('正在检查数据库...', 0.0);
+    final count = await dbService.getCount();
+
+    // 如果数据库为空或数据不足，从JSON文件加载
+    if (count < MINIMUM_DATA_COUNT) {
+      onProgress?.call('正在从JSON文件加载数据...', 0.2);
+      final jsonData = await loadJsonData();
+
+      onProgress?.call('正在保存数据到数据库...', 0.4);
+      for (var ball in jsonData) {
+        await dbService.insertBall(ball);
+      }
+    }
+
+    // 获取最新一期数据
+    final latestBall = await dbService.getLatestBall();
+    final latestQh = latestBall?.qh ?? 0;
+
+    // 检查网络更新
+    onProgress?.call('正在检查网络更新...', 0.6);
+    final networkService = NetworkService(dbService);
+    await networkService.fetchAndSaveNewData();
+
+    onProgress?.call('数据初始化完成', 1.0);
   } catch (e) {
-    print('Error in fetchAndInsertData: $e');
+    debugPrint('初始化数据时出错: $e');
+    rethrow;
   }
 }
 
+/// 检查数据库
 Future<void> checkDatabase() async {
   final dbService = DatabaseService();
   await dbService.initialize();
 
-  final balls = await dbService.getBalls(0, 20);
-  print('Loaded ${balls.length} balls from database');
+  final count = await dbService.getCount();
+  print('数据库中共有 $count 条数据');
 
+  final balls = await dbService.getBalls(0, 20);
   if (balls.isNotEmpty) {
-    print('First ball: ${balls.first}');
+    print('最新一期: ${balls.first}');
   }
 }
 
@@ -126,4 +108,47 @@ String extractJsonData(String response) {
     return response.substring(startIndex, endIndex);
   }
   return response;
+}
+
+class DataLoader {
+  final DatabaseService databaseService;
+  final NetworkService networkService;
+  final PredictionService predictionService;
+  final LoadingProgressCallback? onLoadingProgress;
+
+  DataLoader({
+    required this.databaseService,
+    required this.networkService,
+    required this.predictionService,
+    this.onLoadingProgress,
+  });
+
+  Future<void> loadData() async {
+    try {
+      // 获取最新一期数据
+      final latestBall = await databaseService.getLatestBall();
+      final latestQh = latestBall?.qh ?? 0;
+      debugPrint('当前最新期号: $latestQh');
+
+      // 检查网络更新
+      onLoadingProgress?.call('正在检查网络更新...', 0.6);
+      try {
+        await networkService.fetchAndSaveNewData();
+      } catch (e) {
+        debugPrint('网络更新失败，但继续执行: $e');
+      }
+
+      // 获取最新数据
+      onLoadingProgress?.call('正在获取最新数据...', 0.8);
+      try {
+        await predictionService.analyzeHistoricalData();
+      } catch (e) {
+        debugPrint('分析历史数据失败，但继续执行: $e');
+      }
+
+      onLoadingProgress?.call('数据初始化完成', 1.0);
+    } catch (e) {
+      debugPrint('加载数据时出错，但继续执行: $e');
+    }
+  }
 }

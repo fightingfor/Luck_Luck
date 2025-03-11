@@ -1,207 +1,194 @@
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../models/ball_info.dart';
 import 'database_service.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class NetworkService {
-  final DatabaseService _databaseService = DatabaseService();
-  final String _baseUrl =
-      'https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry';
-  final Map<String, String> _headers = {
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'zh-CN,zh;q=0.9',
-    'Connection': 'keep-alive',
-    'Host': 'webapi.sporttery.cn',
-    'Origin': 'https://www.sporttery.cn',
-    'Referer': 'https://www.sporttery.cn/',
-    'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  };
+  final DatabaseService _databaseService;
+  Timer? _timer;
+  Function(String, double)? onLoadingProgress;
+  late Dio _dio;
 
-  Timer? _updateTimer;
-  static const Duration _updateInterval = Duration(minutes: 30);
-
-  // 后台数据更新任务
-  bool _isUpdating = false;
-
-  // 在应用启动时调用此方法开始后台更新
-  Future<void> startBackgroundUpdate() async {
-    _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(_updateInterval, (_) => checkForUpdates());
-    await checkForUpdates(); // 立即执行一次检查
+  NetworkService(this._databaseService) {
+    _dio = Dio();
   }
 
-  // 停止后台更新
+  void startBackgroundUpdate() {
+    // 每30分钟检查一次更新
+    _timer = Timer.periodic(const Duration(minutes: 30), (timer) {
+      checkForUpdates();
+    });
+  }
+
   void stopBackgroundUpdate() {
-    _updateTimer?.cancel();
-    _updateTimer = null;
-    _isUpdating = false;
+    _timer?.cancel();
+    _timer = null;
   }
 
   Future<void> checkForUpdates() async {
     try {
-      final latestQh = await _databaseService.getLatestQh();
-      final oldestQh = await _databaseService.getOldestQh();
-
-      if (latestQh.isEmpty) {
-        await _fetchInitialData();
-      } else {
-        await _fetchNewData(latestQh);
-      }
-
-      if (oldestQh != '2003001') {
-        await _fetchHistoricalData(oldestQh);
-      }
-    } catch (e) {
-      print('Error checking for updates: $e');
-    }
-  }
-
-  Future<void> _fetchInitialData() async {
-    try {
-      final data = await _fetchDataByPage(1);
-      if (data.isNotEmpty) {
-        await _databaseService.insertBalls(data);
-      }
-    } catch (e) {
-      print('Error fetching initial data: $e');
-    }
-  }
-
-  Future<void> _fetchNewData(String latestQh) async {
-    try {
-      final data = await _fetchDataByPage(1);
-      if (data.isNotEmpty && data.first.qh != latestQh) {
-        print('Found new data, latest qh: ${data.first.qh}');
-        final newData = data.takeWhile((ball) => ball.qh != latestQh).toList();
-        if (newData.isNotEmpty) {
-          await _databaseService.insertBalls(newData);
-        }
-      }
-    } catch (e) {
-      print('Error fetching new data: $e');
-    }
-  }
-
-  Future<void> _fetchHistoricalData(String oldestQh) async {
-    try {
-      var currentPage = 1;
-      var reachedFirstIssue = false;
-      final oldestIssueNumber =
-          oldestQh.isEmpty ? 2003001 : int.parse(oldestQh);
-
-      while (!reachedFirstIssue && currentPage <= 10) {
-        // 限制最多获取10页数据
-        final data = await _fetchDataByPage(currentPage);
-        if (data.isEmpty) {
-          print('No more data available at page $currentPage');
-          break;
-        }
-
-        print('Fetched ${data.length} records from page $currentPage');
-        final newData = data.where((ball) {
-          try {
-            final issueNumber = int.parse(ball.qh);
-            final shouldInclude = issueNumber < oldestIssueNumber;
-            if (shouldInclude) {
-              print('Including qh ${ball.qh} (older than $oldestQh)');
-            }
-            return shouldInclude;
-          } catch (e) {
-            print('Error parsing issue number: ${ball.qh}');
-            return false;
-          }
-        }).toList();
-
-        if (newData.isNotEmpty) {
-          print('Inserting ${newData.length} new records into database');
-          await _databaseService.insertBalls(newData);
-          if (newData.any((ball) => ball.qh == '2003001')) {
-            print('Reached earliest issue (2003001)');
-            break;
-          }
-        } else {
-          print('No new data to insert from page $currentPage');
-          // 如果没有新数据，尝试获取更早的数据
-          final earliestBall = data.last;
-          final earliestIssueNumber = int.parse(earliestBall.qh);
-          if (earliestIssueNumber <= oldestIssueNumber) {
-            print('Reached target issue number $oldestQh');
-            break;
-          }
-        }
-
-        currentPage++;
-      }
-
-      if (currentPage > 10) {
-        print('Reached maximum page limit (10)');
-      }
-    } catch (e) {
-      print('Error fetching historical data: $e');
-    }
-  }
-
-  Future<List<BallInfo>> getNextPage(int offset, int limit) async {
-    return await _databaseService.getBalls(offset, limit);
-  }
-
-  Future<List<BallInfo>> _fetchDataByPage(int page) async {
-    try {
       final response = await http.get(
-        Uri.parse(_baseUrl).replace(queryParameters: {
-          'name': 'ssq',
-          'issueCount': '5000',
-        }),
-        headers: _headers,
+        Uri.parse(
+            'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=1'),
+        headers: {
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': 'zh-CN,zh;q=0.9,vi;q=0.8,en;q=0.7',
+          'Cache-Control': 'max-age=0',
+          'Connection': 'keep-alive',
+          'Cookie':
+              'HMF_CI=a435e384b43cc5f713b156b20f1c576a8c009be6f6fc940a60367092cf00ed304266283e998afb65c447df15dfffa0283a7caac46cb98fea240cfda6004e3be52b',
+          'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+          'sec-ch-ua':
+              '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"macOS"',
+        },
       );
 
       if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        print(
-            'API Response: ${response.body.substring(0, 500)}...'); // Print first 500 chars for debugging
+        final data = jsonDecode(response.body);
+        print('Response data: $data');
 
-        if (jsonData['result'] != null) {
-          final List<dynamic> data = jsonData['result'];
-          print('Fetched ${data.length} records from page $page');
-          print('First record: ${data.first}');
+        if (data['result'] != null && data['result'].isNotEmpty) {
+          final latestDraw = data['result'][0];
+          final latestQh = int.parse(latestDraw['code']);
+          final lastQh = await _databaseService.getLastQh() ?? 0;
 
-          return data.map((item) {
-            try {
-              print('Processing item: $item');
-              final redBalls = (item['red'] as String)
-                  .split(',')
-                  .map((e) => int.parse(e.trim()))
-                  .toList();
-
-              final date = (item['date'] as String).split('(')[0].trim();
-
-              return BallInfo(
-                qh: item['code'].toString(),
-                kjTime: date,
-                zhou: item['week'].toString().replaceAll("星期", ""),
-                redBalls: redBalls,
-                blueBall: int.parse(item['blue'].toString()),
-                saleMoney: item['sales'].toString(),
-                prizePoolMoney: item['poolmoney'].toString(),
-                winnerDetails: [],
-              );
-            } catch (e) {
-              print('Error processing item: $e');
-              print('Item data: $item');
-              rethrow;
-            }
-          }).toList();
+          if (latestQh > lastQh) {
+            await fetchAndSaveNewData();
+          }
         }
       }
-      print('Error: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      return [];
     } catch (e) {
-      print('Error fetching data: $e');
-      return [];
+      print('检查更新时出错: $e');
+    }
+  }
+
+  Future<void> fetchAndSaveNewData() async {
+    try {
+      debugPrint('开始获取最新数据...');
+
+      // 获取数据库中最新一期的数据
+      final latestBall = await _databaseService.getLatestBall();
+      if (latestBall != null) {
+        debugPrint('数据库最新一期: ${latestBall.qh} (${latestBall.kjTime})');
+      } else {
+        debugPrint('数据库中暂无数据');
+      }
+
+      // 获取最新50期数据，确保不会遗漏
+      final response = await _dio.get(
+        'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice',
+        queryParameters: {
+          'name': 'ssq',
+          'issueCount': '50',
+          'orderBy': 'code',
+          'orderType': 'desc',
+        },
+        options: Options(
+          headers: {
+            'Accept': '*/*',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Cookie': 'HMF_CI=a2c6125b4e7b2d7c3a9e0e0d8d4f8e7c',
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          },
+        ),
+      );
+
+      debugPrint('API响应: ${response.data}');
+      final data = response.data;
+      if (data['state'] != 0) {
+        throw Exception('API返回错误: ${data['message']}');
+      }
+
+      if (data['result'] == null) {
+        throw Exception('API返回数据格式错误: 缺少result字段');
+      }
+
+      final results = data['result'] as List;
+      debugPrint('获取到 ${results.length} 条数据');
+
+      // 按期号排序，确保按顺序处理
+      results
+          .sort((a, b) => int.parse(a['code']).compareTo(int.parse(b['code'])));
+
+      // 记录处理过的期号，避免重复
+      Set<int> processedQh = {};
+
+      for (final item in results) {
+        try {
+          String code = item['code'] ?? '';
+          if (code.isEmpty) {
+            debugPrint('警告: 期号为空，跳过该记录');
+            continue;
+          }
+
+          int currentQh = int.parse(code);
+
+          // 如果这个期号已经处理过，跳过
+          if (processedQh.contains(currentQh)) {
+            debugPrint('期号 $currentQh 已处理过，跳过');
+            continue;
+          }
+          processedQh.add(currentQh);
+
+          // 解析日期，格式为 "2025-03-09(日)"
+          String dateStr = item['date'] ?? '';
+          if (dateStr.isEmpty) {
+            debugPrint('警告: 日期为空，跳过该记录');
+            continue;
+          }
+          String formattedDate = dateStr.substring(0, 10);
+
+          debugPrint('处理期号: $currentQh, 开奖日期: $formattedDate');
+
+          // 解析红球和蓝球
+          String redBallsStr = item['red'] ?? '';
+          if (redBallsStr.isEmpty) {
+            debugPrint('警告: 红球数据为空，跳过该记录');
+            continue;
+          }
+          List<int> redBalls =
+              redBallsStr.split(',').map((s) => int.parse(s.trim())).toList();
+
+          String blueStr = item['blue'] ?? '';
+          if (blueStr.isEmpty) {
+            debugPrint('警告: 蓝球数据为空，跳过该记录');
+            continue;
+          }
+          int blueBall = int.parse(blueStr);
+
+          // 创建并保存开奖信息
+          final ballInfo = BallInfo(
+            qh: currentQh,
+            kjTime: formattedDate,
+            zhou: item['week'] ?? '',
+            redBalls: redBalls,
+            blueBall: blueBall,
+          );
+
+          await _databaseService.insertBall(ballInfo);
+          debugPrint('成功保存开奖信息: $ballInfo');
+        } catch (e) {
+          debugPrint('处理单条数据时出错: $e');
+          debugPrint('问题数据: $item');
+          continue;
+        }
+      }
+      debugPrint('数据保存完成');
+    } catch (e) {
+      debugPrint('获取或保存数据时出错: $e');
+      rethrow;
     }
   }
 
@@ -213,7 +200,7 @@ class NetworkService {
   }
 
   void dispose() {
-    _updateTimer?.cancel();
-    _updateTimer = null;
+    _timer?.cancel();
+    _timer = null;
   }
 }
