@@ -23,6 +23,27 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _loadTotalCount();
+    // 加载初始数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<BallProvider>(context, listen: false);
+      provider.loadInitialData(
+        onProgress: (message, progress) {
+          // 可以在这里处理加载进度
+        },
+      );
+    });
+
+    // 添加滚动监听
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels ==
+          _scrollController.position.maxScrollExtent) {
+        // 滚动到底部时加载更多数据
+        if (_searchResults == null) {
+          final provider = Provider.of<BallProvider>(context, listen: false);
+          provider.loadMoreData();
+        }
+      }
+    });
   }
 
   @override
@@ -105,12 +126,23 @@ class _HistoryPageState extends State<HistoryPage> {
                     );
                   } else {
                     // 显示所有数据
-                    return provider.isLoading
+                    return provider.isLoading && provider.balls.isEmpty
                         ? const Center(child: CircularProgressIndicator())
                         : ListView.builder(
                             controller: _scrollController,
-                            itemCount: provider.balls.length,
+                            itemCount: provider.balls.length +
+                                (provider.hasMore ? 1 : 0),
                             itemBuilder: (context, index) {
+                              if (index == provider.balls.length) {
+                                return provider.isLoading
+                                    ? const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(8.0),
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      )
+                                    : const SizedBox();
+                              }
                               return BallItem(ball: provider.balls[index]);
                             },
                           );
