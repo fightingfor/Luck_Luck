@@ -19,9 +19,28 @@ class NetworkService {
   }
 
   void startBackgroundUpdate() {
-    // 每30分钟检查一次更新
-    _timer = Timer.periodic(const Duration(minutes: 30), (timer) {
-      checkForUpdates();
+    // 每5分钟检查一次更新
+    _timer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      // 获取当前时间
+      final now = DateTime.now();
+
+      // 判断是否是开奖时间（每周二、四、日的21:15-22:00）
+      bool isDrawTime = false;
+      if ((now.weekday == 2 || now.weekday == 4 || now.weekday == 7) &&
+          ((now.hour == 21 && now.minute >= 15) ||
+              (now.hour == 21 && now.minute < 60))) {
+        isDrawTime = true;
+      }
+
+      // 如果是开奖时间，每分钟检查一次
+      if (isDrawTime) {
+        _timer?.cancel();
+        _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+          checkForUpdates();
+        });
+      } else {
+        checkForUpdates();
+      }
     });
   }
 
@@ -31,43 +50,57 @@ class NetworkService {
   }
 
   Future<void> checkForUpdates() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-            'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=1'),
-        headers: {
-          'Accept':
-              'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-          'Accept-Language': 'zh-CN,zh;q=0.9,vi;q=0.8,en;q=0.7',
-          'Cache-Control': 'max-age=0',
-          'Connection': 'keep-alive',
-          'Cookie':
-              'HMF_CI=a435e384b43cc5f713b156b20f1c576a8c009be6f6fc940a60367092cf00ed304266283e998afb65c447df15dfffa0283a7caac46cb98fea240cfda6004e3be52b',
-          'User-Agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-          'sec-ch-ua':
-              '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"macOS"',
-        },
-      );
+    int retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = Duration(seconds: 10);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('Response data: $data');
+    while (retryCount < maxRetries) {
+      try {
+        final response = await http.get(
+          Uri.parse(
+              'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=1'),
+          headers: {
+            'Accept':
+                'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'zh-CN,zh;q=0.9,vi;q=0.8,en;q=0.7',
+            'Cache-Control': 'max-age=0',
+            'Connection': 'keep-alive',
+            'Cookie':
+                'HMF_CI=a435e384b43cc5f713b156b20f1c576a8c009be6f6fc940a60367092cf00ed304266283e998afb65c447df15dfffa0283a7caac46cb98fea240cfda6004e3be52b',
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+            'sec-ch-ua':
+                '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+          },
+        );
 
-        if (data['result'] != null && data['result'].isNotEmpty) {
-          final latestDraw = data['result'][0];
-          final latestQh = int.parse(latestDraw['code']);
-          final lastQh = await _databaseService.getLastQh() ?? 0;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          debugPrint('Response data: $data');
 
-          if (latestQh > lastQh) {
-            await fetchAndSaveNewData();
+          if (data['result'] != null && data['result'].isNotEmpty) {
+            final latestDraw = data['result'][0];
+            final latestQh = int.parse(latestDraw['code']);
+            final lastQh = await _databaseService.getLastQh() ?? 0;
+
+            if (latestQh > lastQh) {
+              await fetchAndSaveNewData();
+            }
           }
+          break; // 成功后跳出循环
+        } else {
+          throw Exception('HTTP错误: ${response.statusCode}');
+        }
+      } catch (e) {
+        retryCount++;
+        debugPrint('检查更新时出错 (尝试 $retryCount/$maxRetries): $e');
+
+        if (retryCount < maxRetries) {
+          await Future.delayed(retryDelay);
         }
       }
-    } catch (e) {
-      print('检查更新时出错: $e');
     }
   }
 

@@ -18,6 +18,8 @@ class BallProvider extends ChangeNotifier {
     _networkService.onLoadingProgress = (message, progress) {
       // 网络服务的加载进度回调
     };
+    // 启动自动更新机制
+    _networkService.startBackgroundUpdate();
   }
 
   List<BallInfo> get balls => _balls;
@@ -123,5 +125,11 @@ class BallProvider extends ChangeNotifier {
   // 搜索数据
   Future<List<BallInfo>> searchBalls(SearchCriteria criteria) async {
     return await _databaseService.searchBalls(criteria);
+  }
+
+  @override
+  void dispose() {
+    _networkService.dispose();
+    super.dispose();
   }
 }
