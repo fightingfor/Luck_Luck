@@ -54,6 +54,7 @@ class PredictionProvider extends ChangeNotifier {
           blueBall: map['blueBall'],
           predictDate: DateTime.parse(map['predictDate']),
           periodNumber: map['periodNumber'],
+          confidence: map['confidence'] ?? 0.0,
         );
       }).toList();
     }
@@ -68,6 +69,7 @@ class PredictionProvider extends ChangeNotifier {
                   'blueBall': e.blueBall,
                   'predictDate': e.predictDate.toIso8601String(),
                   'periodNumber': e.periodNumber,
+                  'confidence': e.confidence,
                 }))
             .toList());
   }
@@ -167,5 +169,62 @@ class PredictionProvider extends ChangeNotifier {
   Future<void> clearPredictionHistory() async {
     await _predictionService.clearPredictionHistory();
     notifyListeners();
+  }
+
+  // 获取按期号分组的预测历史
+  Map<String, List<PredictionResult>> getGroupedPredictionHistory() {
+    final Map<String, List<PredictionResult>> grouped = {};
+
+    // 按完整期号分组
+    for (var result in getPredictionHistory()) {
+      grouped.putIfAbsent(result.periodNumber, () => []).add(result);
+    }
+
+    // 对分组键进行排序（降序）
+    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return Map.fromEntries(
+      sortedKeys.map((key) => MapEntry(key, grouped[key]!)),
+    );
+  }
+
+  // 检查收藏列表中的开奖结果
+  Future<void> checkDrawResults() async {
+    bool hasChanges = false;
+
+    for (var prediction in _favorites) {
+      // 如果已经有开奖结果，跳过
+      if (prediction.isDrawn()) continue;
+
+      // 查询数据库中的开奖结果
+      final ball = await _predictionService.databaseService
+          .getBallByPeriod(prediction.periodNumber);
+      if (ball != null) {
+        prediction.calculatePrize(ball.redBalls, ball.blueBall);
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      _saveFavorites();
+      notifyListeners();
+    }
+  }
+
+  // 获取按期号分组的收藏列表
+  Map<String, List<PredictionResult>> getGroupedFavorites() {
+    final Map<String, List<PredictionResult>> grouped = {};
+
+    // 按完整期号分组
+    for (var result in _favorites) {
+      grouped.putIfAbsent(result.periodNumber, () => []).add(result);
+    }
+
+    // 对分组键进行排序（降序）
+    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return Map.fromEntries(
+      sortedKeys.map((key) => MapEntry(key, grouped[key]!)),
+    );
   }
 }

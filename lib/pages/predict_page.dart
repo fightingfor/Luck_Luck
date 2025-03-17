@@ -259,30 +259,120 @@ class _PredictPageState extends State<PredictPage>
                         ],
                       ),
                       const SizedBox(height: 8),
-                      ...history
-                          .map((result) => Card(
-                                child: ListTile(
-                                  title: Text(
-                                    '红球：${result.redBalls.join(", ")}',
-                                    style: const TextStyle(color: Colors.red),
-                                  ),
-                                  subtitle: Text(
-                                    '蓝球：${result.blueBall}',
-                                    style: const TextStyle(color: Colors.blue),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(
-                                      provider.isFavorite(result)
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () =>
-                                        provider.toggleFavorite(result),
-                                  ),
+                      // 按期号分组显示历史预测
+                      ...provider.getGroupedPredictionHistory().entries.map(
+                        (entry) {
+                          final periodNumber = entry.key;
+                          final predictions = entry.value;
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ExpansionTile(
+                              title: Text(
+                                '第 $periodNumber 期',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              ))
-                          .toList(),
+                              ),
+                              children: predictions.map((result) {
+                                final confidence = (result.confidence * 100)
+                                    .toStringAsFixed(1);
+                                final strategy = result.bettingStrategy;
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '期号：${result.periodNumber}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            '可信度：$confidence%',
+                                            style: TextStyle(
+                                              color:
+                                                  double.parse(confidence) >= 70
+                                                      ? Colors.green
+                                                      : Colors.orange,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '红球：${result.redBalls.join(", ")}',
+                                              style: const TextStyle(
+                                                  color: Colors.red),
+                                            ),
+                                          ),
+                                          Text(
+                                            '蓝球：${result.blueBall}',
+                                            style: const TextStyle(
+                                                color: Colors.blue),
+                                          ),
+                                        ],
+                                      ),
+                                      if (strategy != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '建议：${strategy.multiple}倍 (${strategy.amount}元)',
+                                          style: const TextStyle(
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          strategy.explanation,
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          if (result.accuracyDetails.isNotEmpty)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: result.accuracyDetails[
+                                                          'total_accuracy']! >
+                                                      0.5
+                                                  ? Colors.green
+                                                  : Colors.grey,
+                                            ),
+                                          IconButton(
+                                            icon: Icon(
+                                              provider.isFavorite(result)
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () =>
+                                                provider.toggleFavorite(result),
+                                          ),
+                                        ],
+                                      ),
+                                      const Divider(),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          );
+                        },
+                      ).toList(),
                     ],
 
                     const SizedBox(height: 16),

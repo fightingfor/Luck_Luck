@@ -307,6 +307,33 @@ class DatabaseService {
         await db.rawQuery('SELECT COUNT(*) as count FROM $tableName');
     return Sqflite.firstIntValue(result) ?? 0;
   }
+
+  // 根据日期范围获取开奖数据
+  Future<List<BallInfo>> getBallsByDate(
+      DateTime startDate, DateTime endDate) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableName,
+      where: 'kj_time BETWEEN ? AND ?',
+      whereArgs: [startDate.toIso8601String(), endDate.toIso8601String()],
+      orderBy: 'qh DESC',
+    );
+    return List.generate(maps.length, (i) => BallInfo.fromJson(maps[i]));
+  }
+
+  // 根据期号查询开奖结果
+  Future<BallInfo?> getBallByPeriod(String periodNumber) async {
+    final db = await database;
+    final maps = await db.query(
+      tableName,
+      where: 'qh = ?',
+      whereArgs: [int.parse(periodNumber)],
+      limit: 1,
+    );
+
+    if (maps.isEmpty) return null;
+    return BallInfo.fromJson(maps.first);
+  }
 }
 
 class DatabaseException implements Exception {
